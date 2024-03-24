@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {LibAuctionStorage} from "../libraries/LibAuctionStorage.sol";
+import {LibBurn} from "../libraries/LibBurn.sol";
 
 contract AuctionHouseFacet is Ownable {
     LibAuctionStorage.Layout internal l;
@@ -83,7 +84,7 @@ contract AuctionHouseFacet is Ownable {
         uint256 lastInteractorAmount = totalFee * 1 / LibAuctionStorage.FEE_DENOMINATOR;
 
         // Burn the tokens
-        LibAuctionStorage.burn(burnAmount);
+        LibBurn.burn(burnAmount);
 
         // Send fee to DAO (random DAO address logic to be implemented)
         address daoAddress = address(0); // Placeholder for random DAO address
