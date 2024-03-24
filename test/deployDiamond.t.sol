@@ -6,14 +6,16 @@ import "../contracts/facets/DiamondCutFacet.sol";
 import "../contracts/facets/DiamondLoupeFacet.sol";
 import "../contracts/facets/OwnershipFacet.sol";
 
-import "../contracts/facets/ERC20Facet.sol";
 import "../contracts/facets/StakingFacet.sol";
 
 import "../contracts/WOWToken.sol";
 import "forge-std/Test.sol";
 import "../contracts/Diamond.sol";
+import "../contracts/facets/AUCFacet.sol";
+// import "../contracts/facets/AuctionHouseFacet.sol";
 
 import "../contracts/libraries/LibAppStorage.sol";
+import "../contracts/libraries/LibAuctionStorage.sol";
 
 contract DiamondDeployer is Test, IDiamondCut {
     //contract types of facets to be deployed
@@ -21,14 +23,17 @@ contract DiamondDeployer is Test, IDiamondCut {
     DiamondCutFacet dCutFacet;
     DiamondLoupeFacet dLoupe;
     OwnershipFacet ownerF;
-    ERC20Facet erc20Facet;
     StakingFacet sFacet;
     WOWToken wow;
+    AUCFacet aucFacet;
+    // AuctionHouseFacet ahFacet;
 
     address A = address(0xa);
     address B = address(0xb);
 
     StakingFacet boundStaking;
+    AUCFacet boundAUC;
+    // AuctionHouseFacet boundAuctionHouse;
 
     function setUp() public {
         //deploy facets
@@ -36,9 +41,10 @@ contract DiamondDeployer is Test, IDiamondCut {
         diamond = new Diamond(address(this), address(dCutFacet));
         dLoupe = new DiamondLoupeFacet();
         ownerF = new OwnershipFacet();
-        erc20Facet = new ERC20Facet();
         sFacet = new StakingFacet();
         wow = new WOWToken(address(diamond));
+        aucFacet = new AUCFacet();
+        // ahFacet = new AuctionHouseFacet(address(diamond));
 
         //upgrade diamond with facets
 
@@ -70,11 +76,19 @@ contract DiamondDeployer is Test, IDiamondCut {
 
         cut[3] = (
             FacetCut({
-                facetAddress: address(erc20Facet),
+                facetAddress: address(aucFacet),
                 action: FacetCutAction.Add,
-                functionSelectors: generateSelectors("ERC20Facet")
+                functionSelectors: generateSelectors("AUCFacet")
             })
         );
+
+        // cut[4] = (
+        //     FacetCut({
+        //         facetAddress: address(ahFacet),
+        //         action: FacetCutAction.Add,
+        //         functionSelectors: generateSelectors("AuctionHouseFacet")
+        //     })
+        // );
 
         //upgrade diamond
         IDiamondCut(address(diamond)).diamondCut(cut, address(0x0), "");
@@ -85,53 +99,42 @@ contract DiamondDeployer is Test, IDiamondCut {
         B = mkaddr("staker b");
 
         //mint test tokens
-        ERC20Facet(address(diamond)).mintTo(A);
-        ERC20Facet(address(diamond)).mintTo(B);
+        AUCFacet(address(diamond)).mintTo(A);
 
         boundStaking = StakingFacet(address(diamond));
+        boundAUC = AUCFacet(address(diamond));
+        // boundAuctionHouse = AuctionHouseFacet(address(diamond));
     }
 
-    function testStaking() public {
+    function testAUCMint() public {
         switchSigner(A);
-        boundStaking.stake(50_000_000e18);
-
-        vm.warp(3154e7);
-        boundStaking.checkRewards(A);
-        switchSigner(B);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(StakingFacet.NoMoney.selector, 0)
-        );
-        boundStaking.unstake(5);
-
-        bytes32 value = vm.load(
-            address(diamond),
-            bytes32(abi.encodePacked(uint256(2)))
-        );
-        uint256 decodevalue = abi.decode(abi.encodePacked(value), (uint256));
-        console.log(decodevalue);
+        uint256 balance = boundAUC.balanceOf(A);
+        assertTrue(balance == 100_000_000e18, "Unsuccessful Minting");
     }
 
-    // function testLayoutfacet() public {
-    //     LayoutChangerFacet l = LayoutChangerFacet(address(diamond));
-    //     // l.getLayout();
-    //     l.ChangeNameAndNo(777, "one guy");
+    function testAUCApproval() public {
+        switchSigner(A);
+        boundAUC.approve(B, 70_000_000e18);
+        uint256 allowance = boundAUC.allowance(A, B);
+        assertTrue(allowance == 70_000_000e18, "Allowance is not equal to 70_000_000e18");
+    }
 
-    //     //check outputs
-    //     LibAppStorage.Layout memory la = l.getLayout();
+    function testTransfer() public {
+        switchSigner(A);
+        boundAUC.transfer(B, 40_000_000e18);
 
-    //     assertEq(la.name, "one guy");
-    //     assertEq(la.currentNo, 777);
-    // }
+        uint256 balanceOfA = boundAUC.balanceOf(A);
+        assertTrue(balanceOfA == 60_000_000e18, "Balance after transfer is not equal to 60_000_000e18");
 
-    // function testLayoutfacet2() public {
-    //     LayoutChangerFacet l = LayoutChangerFacet(address(diamond));
-    //     //check outputs
-    //     LibAppStorage.Layout memory la = l.getLayout();
+        uint256 balanceOfB = boundAUC.balanceOf(B);
+        assertTrue(balanceOfB == 40_000_000e18, "Balance after transfer is not equal to 60_000_000e18");
+    }
 
-    //     assertEq(la.name, "one guy");
-    //     assertEq(la.currentNo, 777);
-    // }
+    function testTransferRevert() public {
+        vm.expectRevert("ERC20: Not enough tokens to transfer");
+
+        boundAUC.transfer(B, 100_000_000e18);
+    }
 
     function generateSelectors(
         string memory _facetName

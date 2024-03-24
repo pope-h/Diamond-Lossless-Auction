@@ -63,15 +63,21 @@ library LibAuctionStorage {
         emit Transfer(_from, _to, _amount);
     }
 
+    function layoutStorage2() internal pure returns (Layout storage l2) {
+        assembly {
+            l2.slot := 1
+        }
+    }
+
     /**
      * @dev Burns a specific amount of tokens.
      * @param amount The amount of token to be burned.
      */
     function burn(uint256 amount) external {
-        Layout storage l = layoutStorage(); // Ensure the user has enough balance to burn
-        require(l.balances[msg.sender] >= amount, "Insufficient balance"); // Deduct the tokens from the user's balance 
-        l.balances[msg.sender] -= amount; // Update the total supply
-        l.totalSupply -= uint96(amount); // Emit the Transfer event
+        Layout storage l2 = layoutStorage2(); // Ensure the user has enough balance to burn
+        require(l2.balances[msg.sender] >= amount, "Insufficient balance"); // Deduct the tokens from the user's balance 
+        l2.balances[msg.sender] -= amount; // Update the total supply
+        l2.totalSupply -= uint96(amount); // Emit the Transfer event
         emit Burn(msg.sender, amount);
     }
 }
