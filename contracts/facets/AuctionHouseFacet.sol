@@ -1,24 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-// import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "../interfaces/IERC721.sol";
+import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC165.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "../interfaces/IERC20.sol";
+import {LibDiamond} from "../libraries/LibDiamond.sol";
 import {LibAuctionStorage} from "../libraries/LibAuctionStorage.sol";
 import {LibBurn} from "../libraries/LibBurn.sol";
 
-contract AuctionHouseFacet is Ownable {
+contract AuctionHouseFacet {
     LibAuctionStorage.Layout internal l;
 
 
-    constructor(address _aucTokenAddress, address _teamWallet) Ownable(msg.sender) {
+    constructor(address _aucTokenAddress, address _teamWallet) {
         l.aucTokenAddr = IERC20(_aucTokenAddress);
         l.teamWallet = _teamWallet;
+        LibDiamond.setContractOwner(msg.sender);
     }
 
-    function createAuction(uint256 _tokenId, uint256 _endTime, bool _isERC1155, uint256 _amount, address nftContract) external onlyOwner {
+    function createAuction(uint256 _tokenId, uint256 _endTime, bool _isERC1155, uint256 _amount, address nftContract) external {
+        LibDiamond.enforceIsContractOwner();
         require(l.auctions[_tokenId].endTime == 0, "Auction already exists");
 
         IERC721(nftContract).transferFrom(msg.sender, address(this), _tokenId);
@@ -85,7 +87,7 @@ contract AuctionHouseFacet is Ownable {
         uint256 lastInteractorAmount = totalFee * 1 / LibAuctionStorage.FEE_DENOMINATOR;
 
         // Burn the tokens
-        LibBurn.burn(burnAmount);
+        burn(burnAmount);
 
         // Send fee to DAO (random DAO address logic to be implemented)
         address daoAddress = address(0); // Placeholder for random DAO address
@@ -98,5 +100,9 @@ contract AuctionHouseFacet is Ownable {
         l.aucTokenAddr.transfer(l.lastInteractor, lastInteractorAmount);
 
         emit LibAuctionStorage.FeesDistributed(_tokenId, burnAmount, daoAmount, teamAmount, lastInteractorAmount);
+    }
+
+    function burn(uint256 amount) internal {
+        LibBurn._burn(amount);
     }
 }

@@ -12,7 +12,7 @@ import "../contracts/Diamond.sol";
 import "../contracts/facets/AUCFacet.sol";
 import "../contracts/facets/AuctionHouseFacet.sol";
 
-import "../contracts/libraries/LibAppStorage.sol";
+import "../contracts/libraries/LibBurn.sol";
 import "../contracts/libraries/LibAuctionStorage.sol";
 
 contract DiamondDeployer is Test, IDiamondCut {
@@ -39,12 +39,12 @@ contract DiamondDeployer is Test, IDiamondCut {
         ownerF = new OwnershipFacet();
         wow = new WOWToken(address(diamond));
         aucFacet = new AUCFacet();
-        ahFacet = new AuctionHouseFacet(address(diamond));
+        ahFacet = new AuctionHouseFacet(address(aucFacet), address(diamond));
 
         //upgrade diamond with facets
 
         //build cut struct
-        FacetCut[] memory cut = new FacetCut[](3);
+        FacetCut[] memory cut = new FacetCut[](4);
 
         cut[0] = (
             FacetCut({
@@ -137,8 +137,8 @@ contract DiamondDeployer is Test, IDiamondCut {
     function testBurn() public {
         switchSigner(AUCOwner);
 
-        uint256 bal = boundAuctionHouse.burn(40_000_000e18);
-        console.log("bal", bal);
+        boundAuctionHouse.burn(40_000_000e18);
+        console.log("success");
     }
 
     function generateSelectors(

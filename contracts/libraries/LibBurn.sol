@@ -4,11 +4,12 @@ pragma solidity ^0.8.0;
 import {LibAuctionStorage} from "../libraries/LibAuctionStorage.sol";
 
 library LibBurn {
-    function burn(uint256 amount) external {
+    function _burn(uint256 _amount) internal {
         LibAuctionStorage.Layout storage l = LibAuctionStorage.layoutStorage();
-        require(l.balances[msg.sender] >= amount, "Insufficient balance");
-        l.balances[msg.sender] -= amount;
-        l.totalSupply -= amount;
-        emit LibAuctionStorage.Burn(msg.sender, amount);
+        require(l.balances[msg.sender] >= _amount, "Insufficient balance");
+        l.balances[msg.sender] -= _amount;
+        l.totalSupply -= _amount;
+        emit LibAuctionStorage.Burn(msg.sender, _amount);
+        // return l.balances[msg.sender];
     }
 }
