@@ -45,8 +45,8 @@ contract AUCFacet {
         address _to,
         uint256 _value
     ) public returns (bool success) {
-        uint256 l_allowance = l.allowances[_from][msg.sender];
-        if (msg.sender == _from || l.allowances[_from][msg.sender] >= _value) {
+        uint256 l_allowance = l.allowances[_from][address(this)];
+        if (msg.sender == _from || l.allowances[_from][address(this)] >= _value) {
             l.allowances[_from][msg.sender] = l_allowance - _value;
             LibAuctionStorage._transferFrom(_from, _to, _value);
 
@@ -82,3 +82,5 @@ contract AUCFacet {
         emit LibAuctionStorage.Transfer(address(0), _user, amount);
     }
 }
+
+// address(this) ==> diamond not diamond deployer

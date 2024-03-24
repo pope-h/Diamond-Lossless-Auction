@@ -9,6 +9,8 @@ library LibAuctionStorage {
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Burn(address _from, uint256 _amount);
 
+    event test(uint);
+
     event AuctionCreated(uint256 indexed tokenId, uint256 endTime, bool isERC1155, uint256 amount);
     event NewBid(uint256 indexed tokenId, address bidder, uint256 bid);
     event AuctionEnded(uint256 indexed tokenId, address winner, uint256 bid);

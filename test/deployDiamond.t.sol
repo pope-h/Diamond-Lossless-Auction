@@ -28,7 +28,7 @@ contract DiamondDeployer is Test, IDiamondCut {
     AUCFacet aucFacet;
     // AuctionHouseFacet ahFacet;
 
-    address A = address(0xa);
+    address AUCOwner = address(0xa);
     address B = address(0xb);
 
     StakingFacet boundStaking;
@@ -95,11 +95,11 @@ contract DiamondDeployer is Test, IDiamondCut {
 
         //set rewardToken
         diamond.setRewardToken(address(wow));
-        A = mkaddr("staker a");
+        AUCOwner = mkaddr("staker a");
         B = mkaddr("staker b");
 
         //mint test tokens
-        AUCFacet(address(diamond)).mintTo(A);
+        AUCFacet(address(diamond)).mintTo(AUCOwner);
 
         boundStaking = StakingFacet(address(diamond));
         boundAUC = AUCFacet(address(diamond));
@@ -107,27 +107,38 @@ contract DiamondDeployer is Test, IDiamondCut {
     }
 
     function testAUCMint() public {
-        switchSigner(A);
-        uint256 balance = boundAUC.balanceOf(A);
+        switchSigner(AUCOwner);
+        uint256 balance = boundAUC.balanceOf(AUCOwner);
         assertTrue(balance == 100_000_000e18, "Unsuccessful Minting");
     }
 
     function testAUCApproval() public {
-        switchSigner(A);
+        switchSigner(AUCOwner);
         boundAUC.approve(B, 70_000_000e18);
-        uint256 allowance = boundAUC.allowance(A, B);
+        uint256 allowance = boundAUC.allowance(AUCOwner, B);
         assertTrue(allowance == 70_000_000e18, "Allowance is not equal to 70_000_000e18");
     }
 
     function testTransfer() public {
-        switchSigner(A);
+        switchSigner(AUCOwner);
         boundAUC.transfer(B, 40_000_000e18);
 
-        uint256 balanceOfA = boundAUC.balanceOf(A);
+        uint256 balanceOfA = boundAUC.balanceOf(AUCOwner);
         assertTrue(balanceOfA == 60_000_000e18, "Balance after transfer is not equal to 60_000_000e18");
 
         uint256 balanceOfB = boundAUC.balanceOf(B);
         assertTrue(balanceOfB == 40_000_000e18, "Balance after transfer is not equal to 60_000_000e18");
+    }
+
+    function testAUCTransferFrom() public {
+        switchSigner(AUCOwner);
+
+        boundAUC.approve(address(diamond), 100_000_000e18);
+        boundAUC.allowance(AUCOwner, address(diamond));
+        boundAUC.transferFrom(AUCOwner, B, 40_000_000e18);
+
+        uint256 balance = boundAUC.balanceOf(B);
+        assertTrue(balance == 40_000_000e18, "Balance after transfer is not equal to 40_000_000e18");
     }
 
     function testTransferRevert() public {
