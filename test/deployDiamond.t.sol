@@ -6,13 +6,11 @@ import "../contracts/facets/DiamondCutFacet.sol";
 import "../contracts/facets/DiamondLoupeFacet.sol";
 import "../contracts/facets/OwnershipFacet.sol";
 
-import "../contracts/facets/StakingFacet.sol";
-
 import "../contracts/WOWToken.sol";
 import "forge-std/Test.sol";
 import "../contracts/Diamond.sol";
 import "../contracts/facets/AUCFacet.sol";
-// import "../contracts/facets/AuctionHouseFacet.sol";
+import "../contracts/facets/AuctionHouseFacet.sol";
 
 import "../contracts/libraries/LibAppStorage.sol";
 import "../contracts/libraries/LibAuctionStorage.sol";
@@ -23,17 +21,15 @@ contract DiamondDeployer is Test, IDiamondCut {
     DiamondCutFacet dCutFacet;
     DiamondLoupeFacet dLoupe;
     OwnershipFacet ownerF;
-    StakingFacet sFacet;
     WOWToken wow;
     AUCFacet aucFacet;
-    // AuctionHouseFacet ahFacet;
+    AuctionHouseFacet ahFacet;
 
     address AUCOwner = address(0xa);
     address B = address(0xb);
 
-    StakingFacet boundStaking;
     AUCFacet boundAUC;
-    // AuctionHouseFacet boundAuctionHouse;
+    AuctionHouseFacet boundAuctionHouse;
 
     function setUp() public {
         //deploy facets
@@ -41,15 +37,14 @@ contract DiamondDeployer is Test, IDiamondCut {
         diamond = new Diamond(address(this), address(dCutFacet));
         dLoupe = new DiamondLoupeFacet();
         ownerF = new OwnershipFacet();
-        sFacet = new StakingFacet();
         wow = new WOWToken(address(diamond));
         aucFacet = new AUCFacet();
-        // ahFacet = new AuctionHouseFacet(address(diamond));
+        ahFacet = new AuctionHouseFacet(address(diamond));
 
         //upgrade diamond with facets
 
         //build cut struct
-        FacetCut[] memory cut = new FacetCut[](4);
+        FacetCut[] memory cut = new FacetCut[](3);
 
         cut[0] = (
             FacetCut({
@@ -66,15 +61,8 @@ contract DiamondDeployer is Test, IDiamondCut {
                 functionSelectors: generateSelectors("OwnershipFacet")
             })
         );
-        cut[2] = (
-            FacetCut({
-                facetAddress: address(sFacet),
-                action: FacetCutAction.Add,
-                functionSelectors: generateSelectors("StakingFacet")
-            })
-        );
 
-        cut[3] = (
+        cut[2] = (
             FacetCut({
                 facetAddress: address(aucFacet),
                 action: FacetCutAction.Add,
@@ -82,13 +70,13 @@ contract DiamondDeployer is Test, IDiamondCut {
             })
         );
 
-        // cut[4] = (
-        //     FacetCut({
-        //         facetAddress: address(ahFacet),
-        //         action: FacetCutAction.Add,
-        //         functionSelectors: generateSelectors("AuctionHouseFacet")
-        //     })
-        // );
+        cut[3] = (
+            FacetCut({
+                facetAddress: address(ahFacet),
+                action: FacetCutAction.Add,
+                functionSelectors: generateSelectors("AuctionHouseFacet")
+            })
+        );
 
         //upgrade diamond
         IDiamondCut(address(diamond)).diamondCut(cut, address(0x0), "");
@@ -101,9 +89,8 @@ contract DiamondDeployer is Test, IDiamondCut {
         //mint test tokens
         AUCFacet(address(diamond)).mintTo(AUCOwner);
 
-        boundStaking = StakingFacet(address(diamond));
         boundAUC = AUCFacet(address(diamond));
-        // boundAuctionHouse = AuctionHouseFacet(address(diamond));
+        boundAuctionHouse = AuctionHouseFacet(address(diamond));
     }
 
     function testAUCMint() public {
@@ -145,6 +132,13 @@ contract DiamondDeployer is Test, IDiamondCut {
         vm.expectRevert("ERC20: Not enough tokens to transfer");
 
         boundAUC.transfer(B, 100_000_000e18);
+    }
+
+    function testBurn() public {
+        switchSigner(AUCOwner);
+
+        uint256 bal = boundAuctionHouse.burn(40_000_000e18);
+        console.log("bal", bal);
     }
 
     function generateSelectors(
