@@ -46,7 +46,6 @@ contract AuctionHouseFacet {
         emit LibAuctionStorage.AuctionCreated(_tokenId, _endTime, _isERC1155, _amount);
     }
 
-    event check(address, uint);
     function bid(uint256 _tokenId, uint256 _bidAmount) external {
         LibAuctionStorage.Auction storage auction = l.auctions[_tokenId];
         require(block.timestamp < auction.endTime, "Auction already ended");
@@ -58,7 +57,6 @@ contract AuctionHouseFacet {
         }
 
         auction.prevBid = _bidAmount;
-        // uint holdingBal = _bidAmount + auction.highestBid;
 
         l.aucTokenAddr.transferFrom(msg.sender, address(this), _bidAmount);
 
@@ -72,23 +70,31 @@ contract AuctionHouseFacet {
         emit LibAuctionStorage.NewBid(_tokenId, msg.sender, _bidAmount);
     }
 
-    function endAuction(uint256 _tokenId) external {
+    function endAuction(uint256 _tokenId, address _nftContract) external {
         LibDiamond.enforceIsContractOwner();
         // In future implementation, the contract should self terminate on time-out
         LibAuctionStorage.Auction storage auction = l.auctions[_tokenId];
-        require(block.timestamp >= auction.endTime, "Auction not yet ended");
         require(!auction.ended, "Auction end already called");
+
+        // The below commented out in case the seller is satisfied with the price
+        // require(block.timestamp >= auction.endTime, "Auction not yet ended");
 
         auction.ended = true;
         if (auction.highestBidder != address(0)) {
             // Transfer the token to the highest bidder
             if (auction.isERC1155) {
-                IERC1155(auction.seller).safeTransferFrom(auction.seller, auction.highestBidder, auction.tokenId, auction.amount, "");
+                IERC1155(_nftContract).safeTransferFrom(address(this), auction.highestBidder, auction.tokenId, auction.amount, "");
             } else {
-                IERC721(auction.seller).safeTransferFrom(auction.seller, auction.highestBidder, auction.tokenId);
+                IERC721(_nftContract).safeTransferFrom(address(this), auction.highestBidder, auction.tokenId);
             }
             // Transfer the highest bid to the seller
             l.aucTokenAddr.transfer(auction.seller, auction.highestBid);
+        } else {
+            if (auction.isERC1155) {
+                IERC1155(_nftContract).safeTransferFrom(address(this), auction.seller, auction.tokenId, auction.amount, "");
+            } else {
+                IERC721(_nftContract).safeTransferFrom(address(this), auction.seller, auction.tokenId);
+            }
         }
 
         emit LibAuctionStorage.AuctionEnded(_tokenId, auction.highestBidder, auction.highestBid);

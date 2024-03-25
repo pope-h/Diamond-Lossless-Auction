@@ -155,11 +155,6 @@ contract DiamondDeployer is Test, IDiamondCut {
     // }
 
     function testCreateAuction() public {
-        // switchSigner(AUCOwner);
-        
-        // boundAUC.transfer(Bidder1, 10_000_000e18);
-        // boundAUC.transfer(Bidder2, 20_000_000e18);
-        // boundAUC.transfer(Bidder3, 40_000_000e18);
 
         switchSigner(NFTSeller);
         erc721Token.mint();
@@ -229,6 +224,70 @@ contract DiamondDeployer is Test, IDiamondCut {
         switchSigner(Bidder3);
         boundAUC.approve(address(diamond), 20_000_000e18);
         boundAuctionHouse.bid(1, 20_000_000e18);
+    }
+
+    function testOwnerEndAuctionBeforeExpiry() public {
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        vm.warp(4 days);
+        boundAuctionHouse.endAuction(1, address(erc721Token));
+    }
+
+    function testOwnerEndAuctionAfterExpiry() public {
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        vm.warp(7 days);
+        boundAuctionHouse.endAuction(1, address(erc721Token));
+    }
+
+    function testOwnerEndAuctionAfterOneBidBeforeAuctionEnd() public {
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 40_000_000e18);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 40_000_000e18);
+        boundAuctionHouse.bid(1, 15_000_000e18);
+
+        vm.warp(3 days);
+        switchSigner(NFTSeller);
+        boundAuctionHouse.endAuction(1, address(erc721Token));
+    }
+
+    function testOwnerEndAuctionAfterOneBidAfterAuctionEnd() public {
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 40_000_000e18);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 40_000_000e18);
+        boundAuctionHouse.bid(1, 15_000_000e18);
+
+        vm.warp(7 days);
+        switchSigner(NFTSeller);
+        boundAuctionHouse.endAuction(1, address(erc721Token));
     }
 
     function generateSelectors(
