@@ -14,6 +14,7 @@ import "../contracts/facets/AuctionHouseFacet.sol";
 
 import "../contracts/libraries/LibBurn.sol";
 import "../contracts/libraries/LibAuctionStorage.sol";
+import "../contracts/ERC721Token.sol";
 
 contract DiamondDeployer is Test, IDiamondCut {
     //contract types of facets to be deployed
@@ -24,9 +25,13 @@ contract DiamondDeployer is Test, IDiamondCut {
     WOWToken wow;
     AUCFacet aucFacet;
     AuctionHouseFacet ahFacet;
+    ERC721Token erc721Token;
 
     address AUCOwner = address(0xa);
-    address B = address(0xb);
+    address NFTSeller = address(0xe);
+    address Bidder1 = address(0xb);
+    address Bidder2 = address(0xc);
+    address Bidder3 = address(0xd);
 
     AUCFacet boundAUC;
     AuctionHouseFacet boundAuctionHouse;
@@ -39,7 +44,8 @@ contract DiamondDeployer is Test, IDiamondCut {
         ownerF = new OwnershipFacet();
         wow = new WOWToken(address(diamond));
         aucFacet = new AUCFacet();
-        ahFacet = new AuctionHouseFacet(address(aucFacet), address(diamond));
+        ahFacet = new AuctionHouseFacet(address(aucFacet));
+        erc721Token = new ERC721Token();
 
         //upgrade diamond with facets
 
@@ -83,8 +89,11 @@ contract DiamondDeployer is Test, IDiamondCut {
 
         //set rewardToken
         diamond.setRewardToken(address(wow));
-        AUCOwner = mkaddr("staker a");
-        B = mkaddr("staker b");
+        AUCOwner = mkaddr("AUC Token Owner");
+        Bidder1 = mkaddr("Bidder 1");
+        Bidder2 = mkaddr("Bidder 2");
+        Bidder3 = mkaddr("Bidder 3");
+        NFTSeller = mkaddr("NFT Seller");
 
         //mint test tokens
         AUCFacet(address(diamond)).mintTo(AUCOwner);
@@ -101,19 +110,19 @@ contract DiamondDeployer is Test, IDiamondCut {
 
     function testAUCApproval() public {
         switchSigner(AUCOwner);
-        boundAUC.approve(B, 70_000_000e18);
-        uint256 allowance = boundAUC.allowance(AUCOwner, B);
+        boundAUC.approve(Bidder1, 70_000_000e18);
+        uint256 allowance = boundAUC.allowance(AUCOwner, Bidder1);
         assertTrue(allowance == 70_000_000e18, "Allowance is not equal to 70_000_000e18");
     }
 
     function testTransfer() public {
         switchSigner(AUCOwner);
-        boundAUC.transfer(B, 40_000_000e18);
+        boundAUC.transfer(Bidder1, 40_000_000e18);
 
         uint256 balanceOfA = boundAUC.balanceOf(AUCOwner);
         assertTrue(balanceOfA == 60_000_000e18, "Balance after transfer is not equal to 60_000_000e18");
 
-        uint256 balanceOfB = boundAUC.balanceOf(B);
+        uint256 balanceOfB = boundAUC.balanceOf(Bidder1);
         assertTrue(balanceOfB == 40_000_000e18, "Balance after transfer is not equal to 60_000_000e18");
     }
 
@@ -122,23 +131,38 @@ contract DiamondDeployer is Test, IDiamondCut {
 
         boundAUC.approve(address(diamond), 100_000_000e18);
         boundAUC.allowance(AUCOwner, address(diamond));
-        boundAUC.transferFrom(AUCOwner, B, 40_000_000e18);
+        boundAUC.transferFrom(AUCOwner, Bidder1, 40_000_000e18);
 
-        uint256 balance = boundAUC.balanceOf(B);
+        uint256 balance = boundAUC.balanceOf(Bidder1);
         assertTrue(balance == 40_000_000e18, "Balance after transfer is not equal to 40_000_000e18");
     }
 
     function testTransferRevert() public {
         vm.expectRevert("ERC20: Not enough tokens to transfer");
 
-        boundAUC.transfer(B, 100_000_000e18);
+        boundAUC.transfer(Bidder1, 100_000_000e18);
     }
 
-    function testBurn() public {
-        switchSigner(AUCOwner);
+    // BURN IS NOW AN INTERNAL FUNCTION
+    // function testBurn() public {
+    //     switchSigner(AUCOwner);
 
-        boundAuctionHouse.burn(40_000_000e18);
-        console.log("success");
+    //     boundAuctionHouse.burn(40_000_000e18);
+    //     console.log("success");
+    // }
+
+    function testCreateAuction() public {
+        // switchSigner(AUCOwner);
+        
+        // boundAUC.transfer(Bidder1, 10_000_000e18);
+        // boundAUC.transfer(Bidder2, 20_000_000e18);
+        // boundAUC.transfer(Bidder3, 40_000_000e18);
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
     }
 
     function generateSelectors(

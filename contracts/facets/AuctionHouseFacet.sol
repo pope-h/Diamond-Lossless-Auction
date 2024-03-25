@@ -13,18 +13,23 @@ contract AuctionHouseFacet {
     LibAuctionStorage.Layout internal l;
 
 
-    constructor(address _aucTokenAddress, address _teamWallet) {
+    constructor(address _aucTokenAddress) {
         l.aucTokenAddr = IERC20(_aucTokenAddress);
-        l.teamWallet = _teamWallet;
-        LibDiamond.setContractOwner(msg.sender);
+        l.teamWallet = address(this); // AutionHouseFauset is the teamWallet but funds is held by diamond.
     }
 
-    function createAuction(uint256 _tokenId, uint256 _endTime, bool _isERC1155, uint256 _amount, address nftContract) external {
-        LibDiamond.enforceIsContractOwner();
+    event check(string);
+    function createAuction(uint256 _tokenId, uint256 _endTime, bool _isERC1155, uint256 _amount, address _nftContract) external {
+        LibDiamond.setContractOwner(msg.sender);
         require(l.auctions[_tokenId].endTime == 0, "Auction already exists");
+        require(_nftContract != address(0), "Invalid Contract Address");
+        require(
+            IERC721(_nftContract).ownerOf(_tokenId) == msg.sender,
+            "Not Owner"
+        );
+        require(_endTime > block.timestamp, "Invalid Close Time");
 
-        IERC721(nftContract).transferFrom(msg.sender, address(this), _tokenId);
-
+        IERC721(_nftContract).transferFrom(msg.sender, address(this), _tokenId);
 
         l.auctions[_tokenId] = LibAuctionStorage.Auction({
             seller: msg.sender,
@@ -58,6 +63,8 @@ contract AuctionHouseFacet {
     }
 
     function endAuction(uint256 _tokenId) external {
+        LibDiamond.enforceIsContractOwner();
+        // In future implementation, the contract should self terminate on time-out
         LibAuctionStorage.Auction storage auction = l.auctions[_tokenId];
         require(block.timestamp >= auction.endTime, "Auction not yet ended");
         require(!auction.ended, "Auction end already called");
