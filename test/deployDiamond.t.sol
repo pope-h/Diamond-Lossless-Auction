@@ -15,6 +15,7 @@ import "../contracts/facets/AuctionHouseFacet.sol";
 import "../contracts/libraries/LibBurn.sol";
 import "../contracts/libraries/LibAuctionStorage.sol";
 import "../contracts/ERC721Token.sol";
+import "../contracts/libraries/LibDiamond.sol";
 
 contract DiamondDeployer is Test, IDiamondCut {
     //contract types of facets to be deployed
@@ -155,7 +156,6 @@ contract DiamondDeployer is Test, IDiamondCut {
     // }
 
     function testCreateAuction() public {
-
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -163,8 +163,51 @@ contract DiamondDeployer is Test, IDiamondCut {
         boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
     }
 
-    function testBid() public {
+    function testCreateAuctionRevert() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
 
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        vm.expectRevert("Auction already exists");
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+    }
+
+    function testAddressZeroRevert() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        vm.expectRevert("Invalid Contract Address");
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(0));
+    }
+
+    function testNotOwnerRevert() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        switchSigner(Bidder1);
+        vm.expectRevert("Not Owner");
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+    }
+
+    function testInvalidAddressRevert() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        switchSigner(Bidder1);
+        vm.expectRevert("Invalid Contract Address");
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(0));
+    }
+
+    function testBid() public {
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -179,8 +222,26 @@ contract DiamondDeployer is Test, IDiamondCut {
         boundAuctionHouse.bid(1, 15_000_000e18);
     }
 
-    function testNextBid() public {
+    function testBidRevert() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
 
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 40_000_000e18);
+
+        vm.warp(7 days);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 40_000_000e18);
+
+        vm.expectRevert("Auction already ended");
+        boundAuctionHouse.bid(1, 15_000_000e18);
+    }
+
+    function testNextBid() public {
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -200,8 +261,51 @@ contract DiamondDeployer is Test, IDiamondCut {
         boundAuctionHouse.bid(1, 18_000_000e18);
     }
 
-    function testMultipleBidders() public {
+    function testLessNextBid() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
 
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 20_000_000e18);
+        boundAUC.transfer(Bidder2, 20_000_000e18);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 20_000_000e18);
+        boundAuctionHouse.bid(1, 15_000_000e18);
+
+        switchSigner(Bidder2);
+        boundAUC.approve(address(diamond), 13_000_000e18);
+
+        vm.expectRevert("There already is a higher bid");
+        boundAuctionHouse.bid(1, 10_000_000e18);
+    }
+
+    function testNoAllowance() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 20_000_000e18);
+        boundAUC.transfer(Bidder2, 20_000_000e18);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 20_000_000e18);
+        boundAuctionHouse.bid(1, 15_000_000e18);
+
+        switchSigner(Bidder2);
+        boundAUC.approve(address(diamond), 13_000_000e18);
+
+        vm.expectRevert("ERC20: Not enough allowance to transfer");
+        boundAuctionHouse.bid(1, 18_000_000e18);
+    }
+
+    function testMultipleBidders() public {
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -227,7 +331,6 @@ contract DiamondDeployer is Test, IDiamondCut {
     }
 
     function testOwnerEndAuctionBeforeExpiry() public {
-
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -239,7 +342,6 @@ contract DiamondDeployer is Test, IDiamondCut {
     }
 
     function testOwnerEndAuctionAfterExpiry() public {
-
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -251,7 +353,6 @@ contract DiamondDeployer is Test, IDiamondCut {
     }
 
     function testOwnerEndAuctionAfterOneBidBeforeAuctionEnd() public {
-
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -271,7 +372,6 @@ contract DiamondDeployer is Test, IDiamondCut {
     }
 
     function testOwnerEndAuctionAfterOneBidAfterAuctionEnd() public {
-
         switchSigner(NFTSeller);
         erc721Token.mint();
         erc721Token.approve(address(diamond), 1);
@@ -287,6 +387,55 @@ contract DiamondDeployer is Test, IDiamondCut {
 
         vm.warp(7 days);
         switchSigner(NFTSeller);
+        boundAuctionHouse.endAuction(1, address(erc721Token));
+    }
+
+    // function testNotDiamondOwner() public {
+    //     switchSigner(NFTSeller);
+    //     erc721Token.mint();
+    //     erc721Token.approve(address(diamond), 1);
+
+    //     boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+    //     switchSigner(AUCOwner);
+    //     boundAUC.transfer(Bidder1, 40_000_000e18);
+
+    //     vm.warp(2 days);
+
+    //     switchSigner(Bidder1);
+    //     boundAUC.approve(address(diamond), 40_000_000e18);
+    //     boundAuctionHouse.bid(1, 10_000_000e18);
+        
+    //     boundAuctionHouse.endAuction(1, address(erc721Token));
+
+    //     vm.warp(1 days);
+
+    //     vm.expectRevert(
+    //         abi.encodeWithSelector(LibDiamond.NotDiamondOwner.selector)
+    //     );
+    //     boundAuctionHouse.bid(1, 10_000_000e18);
+    // }
+
+    function testEndeAuctionRevert() public {
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 40_000_000e18);
+
+        vm.warp(2 days);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 40_000_000e18);
+        boundAuctionHouse.bid(1, 10_000_000e18);
+
+        switchSigner(NFTSeller);
+        boundAuctionHouse.endAuction(1, address(erc721Token));
+
+        vm.expectRevert("Auction end already called");
         boundAuctionHouse.endAuction(1, address(erc721Token));
     }
 
