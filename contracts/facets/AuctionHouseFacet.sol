@@ -9,6 +9,7 @@ import {LibDiamond} from "../libraries/LibDiamond.sol";
 import {LibAuctionStorage} from "../libraries/LibAuctionStorage.sol";
 import {LibBurn} from "../libraries/LibBurn.sol";
 import {AUCFacet} from "./AUCFacet.sol";
+import {LibTransferFrom} from "../libraries/LibTransferFrom.sol";
 
 contract AuctionHouseFacet {
     LibAuctionStorage.Layout internal l;
@@ -53,19 +54,18 @@ contract AuctionHouseFacet {
 
         if (auction.highestBidder == address(0)) {
             l.aucTokenAddr.transferFrom(msg.sender, address(this), _bidAmount);
+            auction.highestBid = _bidAmount;
+            auction.prevBid = _bidAmount;
+            auction.highestBidder = msg.sender;
             return;
         }
 
-        auction.prevBid = _bidAmount;
-
         l.aucTokenAddr.transferFrom(msg.sender, address(this), _bidAmount);
 
-        uint256 _prevBidderProfit = distributeFees(_tokenId, _bidAmount);
-        uint256 totalRefund = auction.prevBid + _prevBidderProfit;
-        // return prev.Bid to auction.highestBid as it is the prev highest bidder as of now
-        l.aucTokenAddr.transferFrom(address(this), auction.highestBidder, totalRefund);
+        distributeFees(_tokenId, _bidAmount);
 
         auction.highestBidder = msg.sender;
+        auction.prevBid = _bidAmount;
 
         emit LibAuctionStorage.NewBid(_tokenId, msg.sender, _bidAmount);
     }
@@ -111,6 +111,10 @@ contract AuctionHouseFacet {
         uint256 teamAmount = totalFee * 20 / LibAuctionStorage.FEE_DENOMINATOR;
         uint256 lastInteractorAmount = totalFee * 10 / LibAuctionStorage.FEE_DENOMINATOR;
 
+        uint256 totalRefund = auction.prevBid + prevBidderProfit;
+        // return prev.Bid to auction.highestBid as it is the prev highest bidder as of now
+        LibTransferFrom._transferFrom(address(this), auction.highestBidder, totalRefund);
+
         // Burn the tokens
         burn(burnAmount);
 
@@ -123,7 +127,7 @@ contract AuctionHouseFacet {
         // Send fee to last interactor
         l.aucTokenAddr.transfer(l.lastInteractor, lastInteractorAmount);
 
-        emit LibAuctionStorage.FeesDistributed(_tokenId, burnAmount, daoAmount, teamAmount, lastInteractorAmount);
+        emit LibAuctionStorage.FeesDistributed(_tokenId, prevBidderProfit, burnAmount, daoAmount, teamAmount, lastInteractorAmount);
 
         return prevBidderProfit;
     }

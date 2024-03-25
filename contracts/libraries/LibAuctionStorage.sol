@@ -18,7 +18,7 @@ library LibAuctionStorage {
     event AuctionCreated(uint256 indexed tokenId, uint256 endTime, bool isERC1155, uint256 amount);
     event NewBid(uint256 indexed tokenId, address bidder, uint256 bid);
     event AuctionEnded(uint256 indexed tokenId, address winner, uint256 bid);
-    event FeesDistributed(uint256 indexed tokenId, uint256 feesBurned, uint256 feesToDAO, uint256 feesToTeam, uint256 feesToLastInteractor);
+    event FeesDistributed(uint256 indexed tokenId, uint256 prevBidderProfit, uint256 feesBurned, uint256 feesToDAO, uint256 feesToTeam, uint256 feesToLastInteractor);
 
     struct Auction {
         address seller;
