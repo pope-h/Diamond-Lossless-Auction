@@ -42,7 +42,7 @@ contract DiamondDeployer is Test, IDiamondCut {
         diamond = new Diamond(address(this), address(dCutFacet));
         dLoupe = new DiamondLoupeFacet();
         ownerF = new OwnershipFacet();
-        wow = new WOWToken(address(diamond));
+        // wow = new WOWToken(address(diamond));
         aucFacet = new AUCFacet();
         ahFacet = new AuctionHouseFacet(address(aucFacet));
         erc721Token = new ERC721Token();
@@ -88,7 +88,7 @@ contract DiamondDeployer is Test, IDiamondCut {
         IDiamondCut(address(diamond)).diamondCut(cut, address(0x0), "");
 
         //set rewardToken
-        diamond.setRewardToken(address(wow));
+        // diamond.setRewardToken(address(aucFacet));
         AUCOwner = mkaddr("AUC Token Owner");
         Bidder1 = mkaddr("Bidder 1");
         Bidder2 = mkaddr("Bidder 2");
@@ -100,6 +100,9 @@ contract DiamondDeployer is Test, IDiamondCut {
 
         boundAUC = AUCFacet(address(diamond));
         boundAuctionHouse = AuctionHouseFacet(address(diamond));
+
+        //set rewardToken
+        diamond.setRewardToken(address(boundAUC));
     }
 
     function testAUCMint() public {
@@ -163,6 +166,22 @@ contract DiamondDeployer is Test, IDiamondCut {
         erc721Token.approve(address(diamond), 1);
 
         boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+    }
+
+    function testBid() public {
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 40_000_000e18);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 40_000_000e18);
+        boundAuctionHouse.bid(1, 15_000_000e18);
     }
 
     function generateSelectors(

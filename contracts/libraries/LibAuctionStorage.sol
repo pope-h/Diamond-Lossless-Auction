@@ -8,6 +8,7 @@ library LibAuctionStorage {
     //     keccak256("transferFrom.standard.diamond.storage");
 
     uint256 public constant FEE_DENOMINATOR = 100;
+    address public constant DAO_ADDRESS = 0xb7B943fFbA78e33589971e630AD6EB544252D88C;
 
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Burn(address _from, uint256 _amount);
@@ -24,6 +25,7 @@ library LibAuctionStorage {
         uint256 tokenId;
         address highestBidder;
         uint256 highestBid;
+        uint256 prevBid;
         uint256 endTime;
         bool ended;
         bool isERC1155;

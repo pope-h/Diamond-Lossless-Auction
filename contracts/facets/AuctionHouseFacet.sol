@@ -8,6 +8,7 @@ import "../interfaces/IERC20.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";
 import {LibAuctionStorage} from "../libraries/LibAuctionStorage.sol";
 import {LibBurn} from "../libraries/LibBurn.sol";
+import {AUCFacet} from "./AUCFacet.sol";
 
 contract AuctionHouseFacet {
     LibAuctionStorage.Layout internal l;
@@ -18,7 +19,6 @@ contract AuctionHouseFacet {
         l.teamWallet = address(this); // AutionHouseFauset is the teamWallet but funds is held by diamond.
     }
 
-    event check(string);
     function createAuction(uint256 _tokenId, uint256 _endTime, bool _isERC1155, uint256 _amount, address _nftContract) external {
         LibDiamond.setContractOwner(msg.sender);
         require(l.auctions[_tokenId].endTime == 0, "Auction already exists");
@@ -35,7 +35,8 @@ contract AuctionHouseFacet {
             seller: msg.sender,
             tokenId: _tokenId,
             highestBidder: address(0),
-            highestBid: 0,
+            highestBid: _amount,
+            prevBid: 0,
             endTime: _endTime,
             ended: false,
             isERC1155: _isERC1155,
@@ -45,19 +46,28 @@ contract AuctionHouseFacet {
         emit LibAuctionStorage.AuctionCreated(_tokenId, _endTime, _isERC1155, _amount);
     }
 
+    event check(address, uint);
     function bid(uint256 _tokenId, uint256 _bidAmount) external {
         LibAuctionStorage.Auction storage auction = l.auctions[_tokenId];
         require(block.timestamp < auction.endTime, "Auction already ended");
         require(_bidAmount > auction.highestBid, "There already is a higher bid");
 
-        if (auction.highestBidder != address(0)) {
-            // Refund the previous highest bidder
-            l.aucTokenAddr.transfer(auction.highestBidder, auction.highestBid);
+        if (auction.highestBidder == address(0)) {
+            l.aucTokenAddr.transferFrom(msg.sender, address(this), _bidAmount);
+            return;
         }
 
+        auction.prevBid = _bidAmount;
+        // uint holdingBal = _bidAmount + auction.highestBid;
+
         l.aucTokenAddr.transferFrom(msg.sender, address(this), _bidAmount);
+
+        uint256 _prevBidderProfit = distributeFees(_tokenId, _bidAmount);
+        uint256 totalRefund = auction.prevBid + _prevBidderProfit;
+        // return prev.Bid to auction.highestBid as it is the prev highest bidder as of now
+        l.aucTokenAddr.transferFrom(address(this), auction.highestBidder, totalRefund);
+
         auction.highestBidder = msg.sender;
-        auction.highestBid = _bidAmount;
 
         emit LibAuctionStorage.NewBid(_tokenId, msg.sender, _bidAmount);
     }
@@ -85,20 +95,21 @@ contract AuctionHouseFacet {
     }
 
      // Function to distribute fees
-    function distributeFees(uint256 _tokenId) internal {
+    function distributeFees(uint256 _tokenId, uint256 _bidAmount) internal returns(uint256) {
         LibAuctionStorage.Auction storage auction = l.auctions[_tokenId];
-        uint256 totalFee = auction.highestBid * 10 / LibAuctionStorage.FEE_DENOMINATOR;
-        uint256 burnAmount = totalFee * 2 / LibAuctionStorage.FEE_DENOMINATOR;
-        uint256 daoAmount = totalFee * 2 / LibAuctionStorage.FEE_DENOMINATOR;
-        uint256 teamAmount = totalFee * 2 / LibAuctionStorage.FEE_DENOMINATOR;
-        uint256 lastInteractorAmount = totalFee * 1 / LibAuctionStorage.FEE_DENOMINATOR;
+        uint256 totalFee = _bidAmount * 10 / LibAuctionStorage.FEE_DENOMINATOR;
+        auction.highestBid = _bidAmount - totalFee;
+        uint256 prevBidderProfit = totalFee * 30 / LibAuctionStorage.FEE_DENOMINATOR;
+        uint256 burnAmount = totalFee * 20 / LibAuctionStorage.FEE_DENOMINATOR;
+        uint256 daoAmount = totalFee * 20 / LibAuctionStorage.FEE_DENOMINATOR;
+        uint256 teamAmount = totalFee * 20 / LibAuctionStorage.FEE_DENOMINATOR;
+        uint256 lastInteractorAmount = totalFee * 10 / LibAuctionStorage.FEE_DENOMINATOR;
 
         // Burn the tokens
         burn(burnAmount);
 
         // Send fee to DAO (random DAO address logic to be implemented)
-        address daoAddress = address(0); // Placeholder for random DAO address
-        l.aucTokenAddr.transfer(daoAddress, daoAmount);
+        l.aucTokenAddr.transfer(LibAuctionStorage.DAO_ADDRESS, daoAmount);
 
         // Send fee to team wallet
         l.aucTokenAddr.transfer(l.teamWallet, teamAmount);
@@ -107,6 +118,8 @@ contract AuctionHouseFacet {
         l.aucTokenAddr.transfer(l.lastInteractor, lastInteractorAmount);
 
         emit LibAuctionStorage.FeesDistributed(_tokenId, burnAmount, daoAmount, teamAmount, lastInteractorAmount);
+
+        return prevBidderProfit;
     }
 
     function burn(uint256 amount) internal {

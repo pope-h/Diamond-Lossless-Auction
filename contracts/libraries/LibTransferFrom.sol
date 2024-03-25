@@ -11,7 +11,7 @@ library LibTransferFrom {
         uint256 _amount
     ) internal {
         LibAuctionStorage.Layout storage l = LibAuctionStorage.layoutStorage();
-        uint256 frombalances = l.balances[msg.sender];
+        uint256 frombalances = l.balances[_from];
         require(
             frombalances >= _amount,
             "ERC20: Not enough tokens to transfer"

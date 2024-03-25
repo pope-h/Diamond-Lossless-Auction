@@ -33,11 +33,20 @@ contract AUCFacet {
         balance = l.balances[_owner];
     }
 
+    function setLastInterractor() internal {
+        l.lastInteractor = msg.sender;
+    }
+
+    function getLastInterractor() external view returns (address) {
+        return l.lastInteractor;
+    }
+
     function transfer(
         address _to,
         uint256 _value
     ) public returns (bool success) {
         LibTransferFrom._transferFrom(msg.sender, _to, _value);
+        setLastInterractor();
         success = true;
     }
 
@@ -51,6 +60,7 @@ contract AUCFacet {
             l.allowances[_from][msg.sender] = l_allowance - _value;
             LibTransferFrom._transferFrom(_from, _to, _value);
 
+            setLastInterractor();
             emit Approval(_from, msg.sender, l_allowance - _value);
 
             success = true;
