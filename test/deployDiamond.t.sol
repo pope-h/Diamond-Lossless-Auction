@@ -184,6 +184,53 @@ contract DiamondDeployer is Test, IDiamondCut {
         boundAuctionHouse.bid(1, 15_000_000e18);
     }
 
+    function testNextBid() public {
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 20_000_000e18);
+        boundAUC.transfer(Bidder2, 20_000_000e18);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 20_000_000e18);
+        boundAuctionHouse.bid(1, 15_000_000e18);
+
+        switchSigner(Bidder2);
+        boundAUC.approve(address(diamond), 20_000_000e18);
+        boundAuctionHouse.bid(1, 18_000_000e18);
+    }
+
+    function testMultipleBidders() public {
+
+        switchSigner(NFTSeller);
+        erc721Token.mint();
+        erc721Token.approve(address(diamond), 1);
+
+        boundAuctionHouse.createAuction(1, 5 days, false, 8_000_000e18, address(erc721Token));
+
+        switchSigner(AUCOwner);
+        boundAUC.transfer(Bidder1, 20_000_000e18);
+        boundAUC.transfer(Bidder2, 20_000_000e18);
+        boundAUC.transfer(Bidder3, 20_000_000e18);
+
+        switchSigner(Bidder1);
+        boundAUC.approve(address(diamond), 20_000_000e18);
+        boundAuctionHouse.bid(1, 15_000_000e18);
+
+        switchSigner(Bidder2);
+        boundAUC.approve(address(diamond), 20_000_000e18);
+        boundAuctionHouse.bid(1, 18_000_000e18);
+
+        switchSigner(Bidder3);
+        boundAUC.approve(address(diamond), 20_000_000e18);
+        boundAuctionHouse.bid(1, 20_000_000e18);
+    }
+
     function generateSelectors(
         string memory _facetName
     ) internal returns (bytes4[] memory selectors) {
